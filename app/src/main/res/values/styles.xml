@@ -1,0 +1,9 @@
+<resources>
+    <style name="EditorTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#64B5F6</item>
+        <item name="android:statusBarColor">#121821</item>
+        <item name="android:navigationBarColor">#121821</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
