@@ -248,12 +248,20 @@ public final class MainActivity extends ComponentActivity {
             toast("Pasta inacessível ou incompatível com Termux");
             return;
         }
+        // Clear the previous project's file before opening the newly selected folder.
+        initializing = true;
+        currentFile = null;
+        currentName = "main.cpp";
+        dirty = false;
+        editor.setText("");
+        initializing = false;
+        filename.setText("Projeto: " + sharedFolderPath);
         try {
             if (folder.listFiles().length == 0) createSamples();
             DocumentFile startup = folder.findFile("main.cpp");
             if (startup == null) startup = folder.findFile("CMakeLists.txt");
             if (startup != null) loadFile(startup, startup.getName());
-            else { currentFile = null; filename.setText(sharedFolderPath); openFileDialog(); }
+            else { currentFile = null; filename.setText("Projeto: " + sharedFolderPath); openFileDialog(); }
         } catch (Exception e) { error("Falha ao abrir: " + e.getMessage()); }
     }
 
