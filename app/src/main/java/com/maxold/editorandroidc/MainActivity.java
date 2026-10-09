@@ -342,7 +342,8 @@ public final class MainActivity extends ComponentActivity {
 
     private boolean isText(String name) {
         String value = name.toLowerCase(Locale.ROOT);
-        return value.equals("cmakelists.txt") || value.endsWith(".c") || value.endsWith(".h")
+        return value.equals("cmakelists.txt") || value.endsWith(".c") || value.endsWith(".cc")
+            || value.endsWith(".cxx") || value.endsWith(".h")
             || value.endsWith(".cpp") || value.endsWith(".hpp") || value.endsWith(".txt")
             || value.endsWith(".cmake") || value.endsWith(".md");
     }
