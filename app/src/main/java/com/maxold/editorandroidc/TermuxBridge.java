@@ -49,6 +49,18 @@ public final class TermuxBridge {
         script.append("TOOLCHAIN=").append(shellQuote(toolchain)).append("\n");
         script.append("BUILD=\"$HOME/editorandroidc-/build-$TOOLCHAIN\"\n");
         script.append("mkdir -p \"$SRC\" \"$BIN\"\n");
+        if (!mode.equals("run") && !mode.equals("diagnose")) {
+            script.append("PROJECT_PATH=").append(shellQuote(sharedPath)).append("\n");
+            script.append("PROJECT_MARKER=\"$HOME/editorandroidc-/.active-project\"\n");
+            script.append("OLD_PROJECT=\"\"\n");
+            script.append("if [ -f \"$PROJECT_MARKER\" ]; then IFS= read -r OLD_PROJECT < \"$PROJECT_MARKER\" || true; fi\n");
+            script.append("if [ \"$OLD_PROJECT\" != \"$PROJECT_PATH\" ]; then\n");
+            script.append("  echo '[EditorAndroidC] Projeto alterado: limpando fontes, builds e binarios anteriores'\n");
+            script.append("  rm -rf -- \"$SRC\" \"$HOME/editorandroidc-/build-gcc\" \"$HOME/editorandroidc-/build-clang\" \"$BIN\"\n");
+            script.append("  mkdir -p \"$SRC\" \"$BIN\"\n");
+            script.append("  printf '%s\\n' \"$PROJECT_PATH\" > \"$PROJECT_MARKER\"\n");
+            script.append("fi\n");
+        }
 
         if (mode.equals("apk")) {
             script.append("if ! command -v java >/dev/null 2>&1; then echo 'Java/JDK ausente no Termux' >&2; exit 127; fi\n");
@@ -79,6 +91,11 @@ public final class TermuxBridge {
             return script.toString();
         }
         if (mode.equals("run")) {
+            script.append("PROJECT_PATH=").append(shellQuote(sharedPath)).append("\n");
+            script.append("PROJECT_MARKER=\"$HOME/editorandroidc-/.active-project\"\n");
+            script.append("ACTIVE_PROJECT=\"\"\n");
+            script.append("if [ -f \"$PROJECT_MARKER\" ]; then IFS= read -r ACTIVE_PROJECT < \"$PROJECT_MARKER\" || true; fi\n");
+            script.append("if [ \"$ACTIVE_PROJECT\" != \"$PROJECT_PATH\" ]; then echo 'Projeto diferente do ultimo compilado. Compile este projeto primeiro.' >&2; exit 2; fi\n");
             script.append("test -x \"$BIN/$TARGET\" || { echo 'Executável ausente: compile primeiro.' >&2; exit 1; }\n");
             script.append("echo \"Executando: $BIN/$TARGET\"\n");
             script.append("if [ -f \"$HOME/.config/editorandroidc/graphics.env\" ]; then\n");
