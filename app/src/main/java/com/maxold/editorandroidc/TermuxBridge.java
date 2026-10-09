@@ -36,7 +36,7 @@ public final class TermuxBridge {
      * The compiler runs inside Termux. gcc/g++ can be LLVM aliases on Termux.
      */
     public static String command(String mode, String sharedPath, String target,
-                                 String currentFile, String toolchain) {
+                                 String currentFile, String toolchain, int renderer) {
         if (!"gcc".equals(toolchain) && !"clang".equals(toolchain)) {
             throw new IllegalArgumentException("Compilador desconhecido");
         }
@@ -68,6 +68,13 @@ public final class TermuxBridge {
             script.append("  set -a; . \"$HOME/.config/editorandroidc/graphics.env\"; set +a\n");
             script.append("fi\n");
             script.append("echo \"DISPLAY=\u0024{DISPLAY:-unset} GALLIUM_DRIVER=\u0024{GALLIUM_DRIVER:-unset} MESA_LOADER_DRIVER_OVERRIDE=\u0024{MESA_LOADER_DRIVER_OVERRIDE:-unset}\"\n");
+            script.append("case ").append(renderer).append(" in\n");
+            script.append("  0) echo Gallium:ambiente ;;\n");
+            script.append("  1) export GALLIUM_DRIVER=softpipe; export LIBGL_ALWAYS_SOFTWARE=1; unset MESA_LOADER_DRIVER_OVERRIDE; echo Gallium:softpipe ;;\n");
+            script.append("  2) export GALLIUM_DRIVER=llvmpipe; export LIBGL_ALWAYS_SOFTWARE=1; unset MESA_LOADER_DRIVER_OVERRIDE; echo Gallium:llvmpipe ;;\n");
+            script.append("  3) export GALLIUM_DRIVER=zink; unset LIBGL_ALWAYS_SOFTWARE; echo Gallium:zink ;;\n");
+            script.append("  4) export GALLIUM_DRIVER=virpipe; unset LIBGL_ALWAYS_SOFTWARE; echo Gallium:virpipe ;;\n");
+            script.append("esac\n");
             script.append("cd \"$BIN\"\n");
             script.append("\"./$TARGET\"\n");
             return script.toString();
