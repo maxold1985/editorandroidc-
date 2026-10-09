@@ -141,6 +141,7 @@ public final class MainActivity extends ComponentActivity {
         button("Salvar", bar, this::saveCurrentFile);
         button("CMake", bar, () -> executeTermux("configure"));
         button("Make", bar, () -> executeTermux("build"));
+        button("Build APK (NDK)", bar, () -> executeTermux("apk"));
         button("Compilar C/C++", bar, () -> executeTermux("single"));
         button("Executar", bar, () -> executeTermux("run"));
         button("Compiladores", bar, () -> executeTermux("diagnose"));
@@ -438,7 +439,8 @@ public final class MainActivity extends ComponentActivity {
             String label = mode.equals("configure") ? "CMake" :
                 mode.equals("build") ? "Make" :
                 mode.equals("single") ? "Compilar (" + selected + ")" :
-                mode.equals("diagnose") ? "Compiladores" : "Executar";
+                mode.equals("diagnose") ? "Compiladores" :
+                mode.equals("apk") ? "Build APK (NDK)" : "Executar";
             output.setText("Executando " + label + " via Termux...\nCompilador: " + selected
                 + "\nBinários: ~/editorandroidc-/bin/");
             console.setVisibility(View.VISIBLE);
