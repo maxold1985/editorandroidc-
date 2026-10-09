@@ -64,6 +64,10 @@ public final class TermuxBridge {
         if (mode.equals("run")) {
             script.append("test -x \"$BIN/$TARGET\" || { echo 'Executável ausente: compile primeiro.' >&2; exit 1; }\n");
             script.append("echo \"Executando: $BIN/$TARGET\"\n");
+            script.append("if [ -f \"$HOME/.config/editorandroidc/graphics.env\" ]; then\n");
+            script.append("  set -a; . \"$HOME/.config/editorandroidc/graphics.env\"; set +a\n");
+            script.append("fi\n");
+            script.append("echo \"DISPLAY=\u0024{DISPLAY:-unset} GALLIUM_DRIVER=\u0024{GALLIUM_DRIVER:-unset} MESA_LOADER_DRIVER_OVERRIDE=\u0024{MESA_LOADER_DRIVER_OVERRIDE:-unset}\"\n");
             script.append("cd \"$BIN\"\n");
             script.append("\"./$TARGET\"\n");
             return script.toString();
