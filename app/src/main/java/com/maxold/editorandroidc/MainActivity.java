@@ -61,6 +61,7 @@ public final class MainActivity extends ComponentActivity {
     private ScrollView console;
     private EditText target;
     private Spinner compilerSelector;
+    private Spinner rendererSelector;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -172,6 +173,24 @@ public final class MainActivity extends ComponentActivity {
         compilerSelector.setSelection(getPreferences(0).getInt("compiler", 0) == 1 ? 1 : 0);
         title.addView(compilerSelector, new LinearLayout.LayoutParams(dp(134), dp(42)));
         root.addView(title);
+        LinearLayout rendererRow = new LinearLayout(this);
+        rendererRow.setGravity(Gravity.CENTER_VERTICAL);
+        rendererRow.setPadding(dp(12), 0, dp(12), dp(4));
+        TextView rendererLabel = new TextView(this);
+        rendererLabel.setText("Mesa / Gallium:");
+        rendererLabel.setTextColor(Color.WHITE);
+        rendererRow.addView(rendererLabel);
+        rendererSelector = new Spinner(this);
+        String[] renderers = {"Automático", "Softpipe (CPU)", "LLVMpipe (CPU)",
+            "Zink (Vulkan)", "Virpipe (VirGL)"};
+        ArrayAdapter<String> rendererAdapter = new ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item, renderers);
+        rendererAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        rendererSelector.setAdapter(rendererAdapter);
+        rendererSelector.setSelection(Math.max(0, Math.min(4,
+            getPreferences(0).getInt("renderer", 0))));
+        rendererRow.addView(rendererSelector, new LinearLayout.LayoutParams(0, dp(42), 1));
+        root.addView(rendererRow);
 
         LinearLayout codeRow = new LinearLayout(this);
         codeRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -409,10 +428,13 @@ public final class MainActivity extends ComponentActivity {
             return;
         }
         String selected = compilerSelector.getSelectedItemPosition() == 1 ? "clang" : "gcc";
-        getPreferences(0).edit().putInt("compiler", compilerSelector.getSelectedItemPosition()).apply();
+        getPreferences(0).edit()
+            .putInt("compiler", compilerSelector.getSelectedItemPosition())
+            .putInt("renderer", rendererSelector.getSelectedItemPosition()).apply();
         try {
             String command = TermuxBridge.command(mode,
-                sharedFolderPath == null ? "" : sharedFolderPath, name, currentName, selected);
+                sharedFolderPath == null ? "" : sharedFolderPath, name, currentName, selected,
+                rendererSelector.getSelectedItemPosition());
             String label = mode.equals("configure") ? "CMake" :
                 mode.equals("build") ? "Make" :
                 mode.equals("single") ? "Compilar (" + selected + ")" :
