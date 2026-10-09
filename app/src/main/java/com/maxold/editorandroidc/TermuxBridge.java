@@ -50,6 +50,23 @@ public final class TermuxBridge {
         script.append("BUILD=\"$HOME/editorandroidc-/build-$TOOLCHAIN\"\n");
         script.append("mkdir -p \"$SRC\" \"$BIN\"\n");
 
+        if (mode.equals("apk")) {
+            script.append("if ! command -v java >/dev/null 2>&1; then echo 'Java/JDK ausente no Termux' >&2; exit 127; fi\n");
+            script.append("if ! command -v git >/dev/null 2>&1; then echo 'Git ausente: pkg install git' >&2; exit 127; fi\n");
+            script.append("if [ -z \"${ANDROID_HOME:-}\" ] && [ -z \"${ANDROID_SDK_ROOT:-}\" ]; then echo 'Configure ANDROID_HOME para o Android SDK' >&2; exit 2; fi\n");
+            script.append("SDK=\"${ANDROID_HOME:-$ANDROID_SDK_ROOT}\"\n");
+            script.append("if [ ! -d \"$SDK/platforms\" ]; then echo 'Android SDK sem plataformas instaladas' >&2; exit 2; fi\n");
+            script.append("if [ -z \"${ANDROID_NDK_HOME:-}\" ] && [ ! -d \"$SDK/ndk\" ]; then echo 'Android NDK ausente; configure ANDROID_NDK_HOME ou instale no SDK' >&2; exit 2; fi\n");
+            script.append("cp -R ").append(shellQuote(sharedPath)).append("/. \"$SRC/\"\n");
+            script.append("if [ ! -f \"$SRC/settings.gradle\" ] && [ ! -f \"$SRC/settings.gradle.kts\" ]; then echo 'Projeto Android Gradle necessario (settings.gradle)' >&2; exit 2; fi\n");
+            script.append("cd \"$SRC\"\n");
+            script.append("if [ -f ./gradlew ]; then chmod +x ./gradlew; GRADLE=./gradlew; elif command -v gradle >/dev/null 2>&1; then GRADLE=gradle; else echo 'Gradle ausente: inclua gradlew ou instale gradle no Termux' >&2; exit 127; fi\n");
+            script.append("echo '[EditorAndroidC] Iniciando assembleDebug com Gradle/NDK'\n");
+            script.append("\"$GRADLE\" --no-daemon assembleDebug\n");
+            script.append("echo '[EditorAndroidC] APKs gerados:'\n");
+            script.append("find \"$SRC\" -type f -path '*/build/outputs/apk/*' -name '*.apk' -print\n");
+            return script.toString();
+        }
         if (mode.equals("diagnose")) {
             script.append("echo 'Compiladores presentes no Termux:'\n");
             script.append("for cc in gcc g++ clang clang++; do\n");
