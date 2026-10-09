@@ -105,6 +105,12 @@ public final class TermuxBridge {
             return script.toString();
         }
         if (mode.equals("configure") || mode.equals("build")) {
+            script.append("if ! command -v git >/dev/null 2>&1; then\n");
+            script.append("  echo '[EditorAndroidC] Git ausente: necessario para baixar dependencias CMake, como Luau.' >&2\n");
+            script.append("  echo 'Instale no Termux: pkg install git' >&2\n");
+            script.append("  exit 127\n");
+            script.append("fi\n");
+            script.append("echo \"Git: $(command -v git)\"\n");
             script.append("cmake -S \"$SRC\" -B \"$BUILD\" -G 'Unix Makefiles' ");
             script.append("-DCMAKE_C_COMPILER=\"$CC_BIN\" -DCMAKE_CXX_COMPILER=\"$CXX_BIN\" ");
             script.append("-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=\"$BIN\"\n");
