@@ -17,6 +17,8 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
@@ -58,6 +60,7 @@ public final class MainActivity extends ComponentActivity {
     private TextView output;
     private ScrollView console;
     private EditText target;
+    private Spinner compilerSelector;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -137,7 +140,9 @@ public final class MainActivity extends ComponentActivity {
         button("Salvar", bar, this::saveCurrentFile);
         button("CMake", bar, () -> executeTermux("configure"));
         button("Make", bar, () -> executeTermux("build"));
+        button("Compilar C/C++", bar, () -> executeTermux("single"));
         button("Executar", bar, () -> executeTermux("run"));
+        button("Compiladores", bar, () -> executeTermux("diagnose"));
         button("Perm Termux", bar, this::askTermuxPermission);
         button("Log", bar, () -> console.setVisibility(console.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
 
@@ -158,6 +163,14 @@ public final class MainActivity extends ComponentActivity {
         target.setHintTextColor(Color.LTGRAY);
         target.setPadding(dp(5), 0, dp(5), 0);
         title.addView(target, new LinearLayout.LayoutParams(dp(122), dp(36)));
+        compilerSelector = new Spinner(this);
+        String[] names = {"GCC / G++", "Clang / Clang++"};
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item, names);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        compilerSelector.setAdapter(adapter);
+        compilerSelector.setSelection(getPreferences(0).getInt("compiler", 0) == 1 ? 1 : 0);
+        title.addView(compilerSelector, new LinearLayout.LayoutParams(dp(134), dp(42)));
         root.addView(title);
 
         LinearLayout codeRow = new LinearLayout(this);
@@ -374,24 +387,45 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void executeTermux(String mode) {
-        if (folder == null || sharedFolderPath == null) { toast("Selecione a pasta primeiro"); return; }
-        if (dirty && !saveCurrentFile()) return;
+        boolean diagnose = mode.equals("diagnose");
+        if (!diagnose && (folder == null || sharedFolderPath == null)) {
+            toast("Selecione a pasta do projeto primeiro");
+            return;
+        }
+        if (!diagnose && dirty && !saveCurrentFile()) return;
+        if (mode.equals("single") && (currentFile == null || !isCompilable(currentName))) {
+            error("Abra um arquivo .c, .cpp, .cc ou .cxx para compilar diretamente");
+            return;
+        }
         String name = target.getText().toString().trim();
         if (!name.matches("[A-Za-z0-9_+.-]{1,90}") || name.equals(".") || name.equals("..")) {
-            error("Executável inválido (ex.: editor_sample)"); return;
+            error("Executável inválido (ex.: editor_sample)");
+            return;
         }
         if (checkSelfPermission(TERMUX_PERMISSION) != PackageManager.PERMISSION_GRANTED) {
             askTermuxPermission();
             toast("Conceda a permissão e toque novamente no comando");
             return;
         }
+        String selected = compilerSelector.getSelectedItemPosition() == 1 ? "clang" : "gcc";
+        getPreferences(0).edit().putInt("compiler", compilerSelector.getSelectedItemPosition()).apply();
         try {
-            String command = TermuxBridge.command(mode, sharedFolderPath, name);
-            String label = mode.equals("configure") ? "CMake" : mode.equals("build") ? "Make" : "Executar";
-            output.setText("Executando " + label + " via Termux...\nProjeto: " + sharedFolderPath);
+            String command = TermuxBridge.command(mode,
+                sharedFolderPath == null ? "" : sharedFolderPath, name, currentName, selected);
+            String label = mode.equals("configure") ? "CMake" :
+                mode.equals("build") ? "Make" :
+                mode.equals("single") ? "Compilar (" + selected + ")" :
+                mode.equals("diagnose") ? "Compiladores" : "Executar";
+            output.setText("Executando " + label + " via Termux...\nCompilador: " + selected
+                + "\nBinários: ~/editorandroidc-/bin/");
             console.setVisibility(View.VISIBLE);
             TermuxBridge.execute(this, label, command);
         } catch (Exception e) { error("Termux: " + e.getMessage()); }
+    }
+
+    private boolean isCompilable(String name) {
+        return name.endsWith(".c") || name.endsWith(".cpp") ||
+            name.endsWith(".cc") || name.endsWith(".cxx");
     }
 
     private void toast(String message) { Toast.makeText(this, message, Toast.LENGTH_LONG).show(); }
