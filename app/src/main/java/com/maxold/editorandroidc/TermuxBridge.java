@@ -18,13 +18,13 @@ public final class TermuxBridge {
         command.putExtra(PREFIX + "_PATH", "/data/data/com.termux/files/usr/bin/bash");
         command.putExtra(PREFIX + "_ARGUMENTS", new String[]{"-lc", shellCode});
         command.putExtra(PREFIX + "_WORKDIR", "/data/data/com.termux/files/home");
-        command.putExtra(PREFIX + "_BACKGROUND", true);
+        command.putExtra(PREFIX + "_BACKGROUND", !"Executar".equals(label));
         command.putExtra(PREFIX + "_COMMAND_LABEL", label);
         Intent receiver = new Intent(context, CommandResultReceiver.class);
         receiver.putExtra("label", label);
         int flags = PendingIntent.FLAG_ONE_SHOT | (Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
         PendingIntent result = PendingIntent.getBroadcast(context, REQUEST_IDS.incrementAndGet(), receiver, flags);
-        command.putExtra(PREFIX + "_PENDING_INTENT", result);
+        if (!"Executar".equals(label)) command.putExtra(PREFIX + "_PENDING_INTENT", result);
         context.startService(command);
     }
 
@@ -63,6 +63,7 @@ public final class TermuxBridge {
         }
         if (mode.equals("run")) {
             script.append("test -x \"$BIN/$TARGET\" || { echo 'Executável ausente: compile primeiro.' >&2; exit 1; }\n");
+            script.append("echo \"Executando: $BIN/$TARGET\"\n");
             script.append("cd \"$BIN\"\n");
             script.append("\"./$TARGET\"\n");
             return script.toString();
