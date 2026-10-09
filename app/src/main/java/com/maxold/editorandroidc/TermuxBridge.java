@@ -32,25 +32,77 @@ public final class TermuxBridge {
         return "'" + raw.replace("'", "'\\''") + "'";
     }
 
-    public static String command(String mode, String sharedPath, String target) {
-        String prefix = "set -e\n" +
-            "SRC=\"$HOME/editorandroidc-/source\"\n" +
-            "BUILD=\"$HOME/editorandroidc-/build\"\n" +
-            "BIN=\"$HOME/editorandroidc-/bin\"\n" +
-            "mkdir -p \"$SRC\" \"$BUILD\" \"$BIN\"\n";
-        if (mode.equals("configure") || mode.equals("build")) {
-            prefix += "echo '[EditorAndroidC] Importando projeto'\n" +
-                "cp -R " + shellQuote(sharedPath) + "/. \"$SRC/\"\n" +
-                "cmake -S \"$SRC\" -B \"$BUILD\" -G 'Unix Makefiles' -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=\"$BIN\"\n";
+    /**
+     * The compiler runs inside Termux. gcc/g++ can be LLVM aliases on Termux.
+     */
+    public static String command(String mode, String sharedPath, String target,
+                                 String currentFile, String toolchain) {
+        if (!"gcc".equals(toolchain) && !"clang".equals(toolchain)) {
+            throw new IllegalArgumentException("Compilador desconhecido");
         }
-        if (mode.equals("build")) {
-            return prefix + "make -C \"$BUILD\" -j2\n" +
-                "echo '[EditorAndroidC] Binarios:'\nls -l \"$BIN\"\n";
+        StringBuilder script = new StringBuilder();
+        script.append("set -eu\n");
+        script.append("export PATH=\"/data/data/com.termux/files/usr/bin:$PATH\"\n");
+        script.append("SRC=\"$HOME/editorandroidc-/source\"\n");
+        script.append("BIN=\"$HOME/editorandroidc-/bin\"\n");
+        script.append("TARGET=").append(shellQuote(target)).append("\n");
+        script.append("TOOLCHAIN=").append(shellQuote(toolchain)).append("\n");
+        script.append("BUILD=\"$HOME/editorandroidc-/build-$TOOLCHAIN\"\n");
+        script.append("mkdir -p \"$SRC\" \"$BIN\"\n");
+
+        if (mode.equals("diagnose")) {
+            script.append("echo 'Compiladores presentes no Termux:'\n");
+            script.append("for cc in gcc g++ clang clang++; do\n");
+            script.append("  if command -v \"$cc\" >/dev/null 2>&1; then\n");
+            script.append("    printf '%s: ' \"$cc\"; command -v \"$cc\"\n");
+            script.append("    \"$cc\" --version | sed -n '1p'\n");
+            script.append("  else echo \"$cc: não instalado\"; fi\n");
+            script.append("done\n");
+            script.append("echo 'Nota: gcc/g++ podem apontar para Clang no Termux.'\n");
+            return script.toString();
         }
         if (mode.equals("run")) {
-            return prefix + "test -x \"$BIN/" + target + "\" || { echo 'Executavel ausente: compile primeiro.'; exit 1; }\n" +
-                "cd \"$BIN\"\n\"./" + target + "\"\n";
+            script.append("test -x \"$BIN/$TARGET\" || { echo 'Executável ausente: compile primeiro.' >&2; exit 1; }\n");
+            script.append("cd \"$BIN\"\n");
+            script.append("\"./$TARGET\"\n");
+            return script.toString();
         }
-        return prefix;
+
+        script.append("if [ \"$TOOLCHAIN\" = 'gcc' ]; then CC_NAME=gcc; CXX_NAME=g++; ");
+        script.append("else CC_NAME=clang; CXX_NAME=clang++; fi\n");
+        script.append("CC_BIN=\"$(command -v \"$CC_NAME\" || true)\"\n");
+        script.append("CXX_BIN=\"$(command -v \"$CXX_NAME\" || true)\"\n");
+        script.append("if [ -z \"$CC_BIN\" ] || [ -z \"$CXX_BIN\" ]; then\n");
+        script.append(" echo 'Compilador não encontrado no Termux. Instale: pkg install clang cmake make' >&2\n");
+        script.append(" exit 127\nfi\n");
+        script.append("echo \"C: $CC_BIN\"; \"$CC_BIN\" --version | sed -n '1p'\n");
+        script.append("echo \"C++: $CXX_BIN\"; \"$CXX_BIN\" --version | sed -n '1p'\n");
+        script.append("mkdir -p \"$BUILD\"\n");
+        script.append("echo '[EditorAndroidC] Sincronizando os arquivos com Termux'\n");
+        script.append("cp -R ").append(shellQuote(sharedPath)).append("/. \"$SRC/\"\n");
+        if (mode.equals("single")) {
+            script.append("CURRENT=").append(shellQuote(currentFile)).append("\n");
+            script.append("test -f \"$SRC/$CURRENT\" || { echo 'Arquivo não encontrado' >&2; exit 1; }\n");
+            script.append("case \"$CURRENT\" in\n");
+            script.append(" *.c) \"$CC_BIN\" -std=c11 -O0 -g -Wall -Wextra -I \"$SRC\" ");
+            script.append("\"$SRC/$CURRENT\" -o \"$BIN/$TARGET\" ;;\n");
+            script.append(" *.cpp|*.cc|*.cxx) \"$CXX_BIN\" -std=c++17 -O0 -g -Wall -Wextra -I \"$SRC\" ");
+            script.append("\"$SRC/$CURRENT\" -o \"$BIN/$TARGET\" ;;\n");
+            script.append(" *) echo 'Arquivo incompatível com a compilação direta' >&2; exit 2 ;;\nesac\n");
+            script.append("echo \"Compilado: $BIN/$TARGET\"\n");
+            return script.toString();
+        }
+        if (mode.equals("configure") || mode.equals("build")) {
+            script.append("cmake -S \"$SRC\" -B \"$BUILD\" -G 'Unix Makefiles' ");
+            script.append("-DCMAKE_C_COMPILER=\"$CC_BIN\" -DCMAKE_CXX_COMPILER=\"$CXX_BIN\" ");
+            script.append("-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=\"$BIN\"\n");
+            if (mode.equals("build")) {
+                script.append("make -C \"$BUILD\" -j2\n");
+                script.append("echo \"[EditorAndroidC] Binários em: $BIN\"\n");
+                script.append("ls -lh \"$BIN\"\n");
+            }
+            return script.toString();
+        }
+        throw new IllegalArgumentException("Comando não suportado");
     }
 }
